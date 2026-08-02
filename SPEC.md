@@ -27,6 +27,10 @@ tier 是**录入表单的引导**，决定显示哪些字段。它不进入状�
 
 ## 2. 数据模型
 
+**迁移执行方式**：本项目**不使用 `supabase db reset`**，也不依赖本地 Docker。迁移通过
+Supabase Dashboard 的 SQL Editor 手动执行，或用 `supabase db push` 推到云端项目。
+`supabase/migrations/` 下的文件是唯一真源，手动执行时按文件名顺序整份贴进去跑。
+
 ### 2.1 DDL
 
 ```sql
@@ -81,6 +85,13 @@ create table catalog (
 create index items_active_idx on items (user_id)
   where consumed_at is null and discarded_at is null;
 create index catalog_rank_idx on catalog (user_id, use_count desc, last_used_at desc);
+
+-- updated_at 自动维护。仅 items 有 updated_at 列，catalog 没有，不加。
+-- 这是审计字段，不是派生状态，不违反「status 绝不落库」。
+create extension if not exists moddatetime schema extensions;
+
+create trigger items_updated_at before update on items
+  for each row execute procedure extensions.moddatetime(updated_at);
 ```
 
 ### 2.2 RLS
@@ -131,6 +142,10 @@ export interface ExpiryResult {
 export function computeExpiry(item: ExpiryInput, today: DateStr): ExpiryResult
 ```
 
+`computeExpiry` 对非法日期字符串抛错（格式不是 `YYYY-MM-DD`、月份越界、该日期不存在如
+`2027-02-29`），**调用方必须处理异常**。它不返回错误码、不返回 null 兜底——保质期算错比
+抛错危险得多。这条约束对 P1 的渲染层和表单层有硬性要求，见 §4 P1。
+
 ### 3.1 算法
 
 ```
@@ -140,6 +155,8 @@ candidates = [
   purchase_date + shelf_life_days 天       → 'shelf_life'   (两者都非空才算)
 ]
 去掉 null，取日期最早的一个 → effectiveExpiry, source
+若两个来源算出同一天，按 explicit > pao > shelf_life 的优先级决定 source
+  （即上面数组的书写顺序，effectiveExpiry 相同，只影响 UI 显示哪个来源标记）
 若 candidates 为空 → { effectiveExpiry: null, daysLeft: null, status: 'untracked', source: null }
 
 daysLeft = 日历天数差(effectiveExpiry - today)
@@ -178,7 +195,7 @@ daysLeft <= warn * 2 → 'soon'
 **验收**：
 - `npm run test` 全绿，§3.2 每条用例都有对应 test
 - `computeExpiry` 不 import 任何 React / Supabase / 全局时间
-- 迁移 SQL 能在 Supabase 本地跑通
+- 迁移 SQL 能在 Supabase 云端项目跑通（Dashboard SQL Editor 手动执行，见 §2）
 - 枚举值与 CLAUDE.md 完全一致
 
 ### P1 — CRUD + 主视图
@@ -193,10 +210,24 @@ daysLeft <= warn * 2 → 'soon'
 - 右滑或按钮：一键「已用完」（写 `consumed_at`）
 - **空状态是成功状态**，文案要正向，不要显示「暂无数据」
 
+**非法日期的处理（由 §3 的抛错约定引出，必须做）**：
+
+`computeExpiry` 对非法日期抛错，所以 P1 必须在两个位置挡住：
+
+1. **渲染侧——逐条隔离异常。** 列表渲染时每一条独立 try/catch（或等价的
+   per-item error boundary），单条日期数据异常只把该条渲染成
+   「⚠️ 日期数据异常」占位，且该占位可点击进入编辑页修复。
+   **异常不得冒泡导致整个列表白屏。**
+2. **录入侧——提交前校验。** 新增/编辑表单提交前校验日期格式为 `YYYY-MM-DD`
+   且该日期真实存在（例如拒绝 `2027-02-29`），从源头阻止非法值入库。
+3. 以上两点都要有对应测试。
+
 **验收**：
 - 新增后列表立即出现（乐观更新，不等网络往返）
 - 标记消耗后条目消失且不可被普通视图查到
 - 移动端单手可完成新增到保存全流程
+- 列表中混入一条日期非法的数据时，其余条目正常渲染，该条显示为可点击的「⚠️ 日期数据异常」
+- 表单无法提交格式非法或不存在的日期
 
 ### P2 — 快速录入 + 库存视图
 
@@ -232,7 +263,21 @@ daysLeft <= warn * 2 → 'soon'
 - 若无待处理项，也推一条简短确认（沉默会让人怀疑系统挂了）
 - Token 存 Supabase secrets，**不进代码库**
 
-**验收**：手动触发 workflow 能收到消息；无数据时也收到消息。
+**keepalive（必做，与周报同等重要）**：
+
+Supabase 免费项目在**连续 7 天无数据库活动后自动暂停**。周报是每周一次，恰好和这个
+7 天边界重合——项目可能刚好在周报触发前被暂停，导致周报打到一个已暂停的项目上，
+而且暂停本身是静默的。因此必须额外加一个每日 keepalive：
+
+- 每天执行一次，跑一个极轻量查询（如 `select 1 from items limit 1`）
+- **独立的 workflow 文件**，与周报分开，两者互不影响（周报挂了不能连带 keepalive 挂）
+- 仓库设为 public，GitHub Actions 分钟数不计费
+- Telegram token 一律走 GitHub Secrets，**不进代码库**
+
+**验收**：
+- 手动触发周报 workflow 能收到消息；无数据时也收到消息
+- keepalive workflow 独立存在、可单独手动触发、执行成功
+- 代码库里搜不到任何 token 明文
 
 ### P4 — 复购周期推断
 

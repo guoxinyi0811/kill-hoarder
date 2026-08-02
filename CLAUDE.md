@@ -5,7 +5,7 @@
 
 ## 技术栈（已定，不要替换）
 
-- Vite + React 18 + TypeScript（strict）
+- Vite + React 19 + TypeScript（strict）
 - Tailwind CSS
 - Supabase（Postgres + Auth + Edge Functions）
 - TanStack Query（乐观更新）
@@ -34,7 +34,8 @@ const WARN_DAYS: Record<Category, number> = {
 
 ## 核心规则（违反即为 bug）
 
-1. **status 永远运行时计算，绝不写入数据库。** 没有 status 列，没有缓存，没有触发器。
+1. **status 永远运行时计算，绝不写入数据库。** 没有 status 列，没有缓存，没有任何维护派生状态的触发器。
+   （`items.updated_at` 的 moddatetime 触发器是审计字段，不是派生状态，不在此限。）
 2. **tier 只影响录入表单的字段显示，不参与任何计算。** 状态计算是单一纯函数，不按 tier 分支。
 3. `effectiveExpiry` 取三个来源中**最早**的非空值：显式 `expiry_date`、`opened_date + pao_months`、`purchase_date + shelf_life_days`。三者全空 → `untracked`。
 4. 删除一律软删除（`consumed_at` / `discarded_at`），消耗历史是 P4 的数据基础，不能真删。
@@ -49,6 +50,7 @@ const WARN_DAYS: Record<Category, number> = {
 - ❌ 不用 UI 组件库（shadcn 除外，可选）
 - ❌ 不自己发明「智能提醒」「AI 推荐」等未在 SPEC 中的功能
 - ❌ 不写超出当前 phase 范围的代码；phase 之间必须停下来等确认
+- ❌ 不运行 `npm audit fix --force`，不为消除告警而降级或更换 vite-plugin-pwa；该链路为构建期 devDependency，不进产物
 
 ## 命令
 

@@ -2,7 +2,10 @@
 --
 -- 注意（CLAUDE.md 核心规则 1 / SPEC §2.3）：
 --   status、days_left、effective_expiry 都不是列。全部由 src/lib/expiry.ts 运行时计算。
---   这里没有 status 列、没有缓存列、没有触发器。
+--   这里没有 status 列、没有缓存列、没有维护派生状态的触发器。
+--   （末尾的 items_updated_at 触发器只维护审计字段 updated_at，不是派生状态。）
+--
+-- 执行方式（SPEC.md §2）：不用 supabase db reset，走 Dashboard SQL Editor 或 supabase db push。
 -- 注意（CLAUDE.md 核心规则 4）：
 --   删除一律软删除，走 consumed_at / discarded_at，消耗历史是 P4 的数据基础。
 
@@ -72,6 +75,18 @@ create table catalog (
 create index items_active_idx on items (user_id)
   where consumed_at is null and discarded_at is null;
 create index catalog_rank_idx on catalog (user_id, use_count desc, last_used_at desc);
+
+-- ---------------------------------------------------------------------------
+-- updated_at 自动维护
+--
+-- 仅 items 有 updated_at 列，catalog 没有该列，故不加触发器。
+-- 这是审计字段而非派生状态，不违反 CLAUDE.md 核心规则 1（status 绝不落库）。
+-- ---------------------------------------------------------------------------
+
+create extension if not exists moddatetime schema extensions;
+
+create trigger items_updated_at before update on items
+  for each row execute procedure extensions.moddatetime(updated_at);
 
 -- ---------------------------------------------------------------------------
 -- RLS（单用户，但仍开，避免以后要分享时返工）
