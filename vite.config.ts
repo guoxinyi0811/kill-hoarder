@@ -22,7 +22,9 @@ export default defineConfig({
     }),
   ],
   test: {
+    // 默认 node：src/lib 是纯逻辑，不需要 DOM。
+    // 需要 DOM 的组件测试在文件顶部用 `// @vitest-environment jsdom` 单独声明。
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 })

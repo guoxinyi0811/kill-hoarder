@@ -34,6 +34,16 @@ export interface ExpiryResult {
   source: ExpirySource | null
 }
 
+/**
+ * computeExpiry 的不抛错版本。
+ *
+ * 渲染层用这个：列表里混进一条日期非法的数据时，只让那一条降级成占位，
+ * 不能让异常冒泡把整个列表炸掉（SPEC §4 P1）。
+ */
+export type SafeExpiryResult =
+  | { ok: true; result: ExpiryResult }
+  | { ok: false; message: string }
+
 // ---------------------------------------------------------------------------
 // 历法工具：纯整数运算，不依赖 Date
 // ---------------------------------------------------------------------------
@@ -211,5 +221,38 @@ export function computeExpiry(item: ExpiryInput, today: DateStr): ExpiryResult {
     daysLeft,
     status: toStatus(daysLeft, item.category),
     source: winner.source,
+  }
+}
+
+/**
+ * 校验一个字符串是否是合法且真实存在的 'YYYY-MM-DD' 日期。
+ *
+ * 表单提交前用这个挡住非法值（SPEC §4 P1）。它和 computeExpiry 走同一套
+ * parseDate，所以「表单放行的」与「computeExpiry 接受的」永远是同一个集合。
+ */
+export function isValidDateStr(value: string): boolean {
+  try {
+    parseDate(value, 'date')
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * computeExpiry 的不抛错包装。日期非法时返回 { ok: false, message }，
+ * 由调用方决定怎么降级显示，而不是让异常冒泡。
+ */
+export function computeExpirySafe(
+  item: ExpiryInput,
+  today: DateStr,
+): SafeExpiryResult {
+  try {
+    return { ok: true, result: computeExpiry(item, today) }
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+    }
   }
 }
