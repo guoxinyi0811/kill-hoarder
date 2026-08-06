@@ -1,6 +1,109 @@
 # Kill Hoarder
 
-家庭保质期管理 PWA。单用户自用，解决两个**独立**的问题：
+**The pantry and vanity manager.** A single-user PWA that tracks what you own and when it goes bad.
+
+*[中文说明见下方](#kill-hoarder-中文)*
+
+---
+
+It solves two **independent** problems:
+
+1. **Expiry warnings** — tell me what to eat or use up, while there's still time
+2. **Inventory visibility** — "do I already have Sichuan peppercorns?" "what's left before I go shopping?"
+
+The second problem needs no dates at all. Conflating the two is the usual reason systems like this fail.
+
+> The only failure mode is entry friction. Any feature that adds a step to logging an item is off by default.
+
+Full spec in [SPEC.md](SPEC.md); non-negotiable engineering constraints in [CLAUDE.md](CLAUDE.md).
+
+## Three-tier tracking model
+
+| Tier | For | You enter | Computed from |
+|---|---|---|---|
+| **L1 exact** | Fresh food, yogurt, opened skincare | Expiry or opening date | `expiry_date`, or `opened_date + pao_months` |
+| **L2 rough** | Frozen goods, snacks, sauces | Purchase date only | `purchase_date + shelf_life_days` |
+| **L3 existence only** | Dried spices, pantry staples | Nothing | none → `untracked` |
+
+`effectiveExpiry` is the **earliest** non-null value among the three sources. All three empty means `untracked`.
+
+Status (`expired / urgent / soon / ok / untracked`) is **always computed at runtime, never stored** —
+no `status` column, no cache, no triggers maintaining derived state.
+
+## Stack
+
+Vite · React 19 · TypeScript (strict) · Tailwind CSS · Supabase (Postgres + Auth + Edge Functions) ·
+TanStack Query · vite-plugin-pwa · Vitest · Cloudflare Pages
+
+## Progress
+
+| Phase | Scope | Status |
+|---|---|---|
+| **P0** | Scaffolding, migration SQL, `computeExpiry` pure function, unit tests | ✅ Done |
+| **P1** | Login, list, create / edit, mark consumed / discarded | ✅ Done |
+| **P2** | Catalog-based quick entry, "what's at home" / "needs restocking" views | Not started |
+| **P3** | Weekly digest (Edge Function + Actions cron + Telegram) + daily keepalive | Not started |
+| **P4** | Restock-cycle inference from consumption history | Not started |
+
+## Running locally
+
+Requires Node 20+ and a Supabase project.
+
+```bash
+npm install
+```
+
+Create `.env.local` in the project root:
+
+```
+VITE_SUPABASE_URL=https://<your-project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<your-publishable-or-anon-key>
+```
+
+Either the new key format (`sb_publishable_…`) or a legacy JWT works — `supabase-js` handles both.
+`.env.local` is gitignored and never reaches the repo.
+
+For the database, paste the SQL under [`supabase/migrations/`](supabase/migrations) into the Supabase
+Dashboard SQL Editor, or run `supabase db push`. **This project does not use `supabase db reset`**
+and does not depend on local Docker.
+
+```bash
+npm run dev      # dev server
+npm run test     # Vitest
+npm run build    # production build
+npm run lint     # oxlint
+```
+
+## Layout
+
+```
+src/
+├── lib/                  # Pure logic: zero React, zero Supabase, fully unit-testable
+│   ├── enums.ts            # Enums and WARN_DAYS — the single source of truth
+│   ├── expiry.ts           # computeExpiry: never reads the clock, integer calendar math only
+│   ├── today.ts            # "Today" in America/Toronto — the only module that reads the clock
+│   ├── pending.ts          # Filter / sort / group / per-item error isolation for the main view
+│   ├── validation.ts       # Pre-submit form validation
+│   └── types.ts
+├── api/                  # Supabase reads and writes (soft delete only, no .delete())
+├── hooks/                # TanStack Query optimistic updates
+└── components/           # PendingList · ItemForm · LoginScreen · Toast
+```
+
+`computeExpiry` contains no `Date` at all — date arithmetic is pure integer calendar math, so no
+timezone or DST effect can reach it. A test scans the source to enforce exactly that.
+
+On an invalid date it **throws** rather than returning a fallback: getting an expiry date wrong is
+worse than crashing. Callers must handle it, so the list isolates errors per row and the form
+validates before submit. Both defenses are covered by tests.
+
+---
+
+# Kill Hoarder（中文）
+
+**家庭保质期管理 PWA。** 单用户自用，记录家里有什么、什么时候过期。
+
+解决两个**独立**的问题：
 
 1. **过期预警** —— 该吃 / 该用完的东西，在还来得及的时候提醒
 2. **库存可见性** —— 「我到底有没有花椒」「买菜前家里还剩什么」
@@ -22,7 +125,7 @@
 `effectiveExpiry` 取三个来源中**最早**的非空值。三者全空即 `untracked`。
 
 状态 `expired / urgent / soon / ok / untracked` **永远运行时计算，绝不写入数据库**——
-没有 `status` 列，没有缓存，没有触发器。
+没有 `status` 列，没有缓存，没有维护派生状态的触发器。
 
 ## 技术栈
 
