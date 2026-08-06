@@ -2,6 +2,8 @@
 
 **The pantry and vanity manager.** A single-user PWA that tracks what you own and when it goes bad.
 
+*Assisted by [Claude](https://claude.com/claude-code).*
+
 *[中文说明见下方](#kill-hoarder-中文)*
 
 ---
@@ -102,6 +104,8 @@ validates before submit. Both defenses are covered by tests.
 # Kill Hoarder（中文）
 
 **家庭保质期管理 PWA。** 单用户自用，记录家里有什么、什么时候过期。
+
+*Assisted by [Claude](https://claude.com/claude-code)。*
 
 解决两个**独立**的问题：
 
