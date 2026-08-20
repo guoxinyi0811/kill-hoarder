@@ -1,8 +1,8 @@
 /**
- * items 的 TanStack Query 封装。
+ * TanStack Query wrappers for items.
  *
- * 新增、编辑、标记消耗/丢弃全部走乐观更新——不等网络往返，UI 立刻变
- * （SPEC §4 P1 验收）。失败则回滚到操作前的缓存快照。
+ * Create, edit, consume, and discard all use optimistic updates so the UI changes
+ * before the network round trip (SPEC §4 P1). Failures restore the previous cache snapshot.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -21,7 +21,7 @@ interface Snapshot {
   previous: Item[] | undefined
 }
 
-/** 把 draft 拼成一条「看起来像真的」的条目，供乐观更新先塞进列表。 */
+/** Turn a draft into a provisional item for the optimistic cache update. */
 export function optimisticItem(draft: ItemDraft, id: string): Item {
   const now = new Date().toISOString()
   return {
@@ -104,7 +104,7 @@ export function useUpdateItem() {
   })
 }
 
-/** 软删除的乐观更新：立刻从活动列表里移除。 */
+/** Optimistically remove a soft-deleted item from the active list. */
 function useSoftDelete(mutationFn: (id: string) => Promise<Item>) {
   const queryClient = useQueryClient()
 

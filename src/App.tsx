@@ -1,8 +1,8 @@
 /**
- * 应用容器。
+ * Application container.
  *
- * 视图切换用 useState，不引入 router —— P2 会新增三个视图，路由结构那时候
- * 一次性设计，现在定的会是错的。
+ * Views are switched with useState rather than a router. P2 will add three views,
+ * so the navigation structure should be designed once at that point.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -74,9 +74,9 @@ function SignedInApp() {
     addItem.mutate(draft)
     setView({ name: 'list' })
 
-    // 落在筛选范围内的条目会靠乐观更新立刻出现在列表里，不需要额外回执。
-    // 落在范围外的（ok / untracked）列表不会有任何变化，必须给一条 toast，
-    // 否则用户会以为没保存成功（SPEC §4 P1 验收）。
+    // Items inside the filter appear immediately through the optimistic update.
+    // Items outside it (ok / untracked) leave the list unchanged, so a toast is
+    // required to confirm that the save succeeded (SPEC §4 P1 acceptance criteria).
     const preview = optimisticItem(draft, 'preview')
     if (!appearsInPending(preview, today)) {
       setToast(

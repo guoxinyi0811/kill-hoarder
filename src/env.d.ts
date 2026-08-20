@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** Supabase 项目 URL。在 .env.local 里配置。 */
+  /** Supabase project URL, configured in .env.local. */
   readonly VITE_SUPABASE_URL: string
-  /** Supabase publishable / anon key。在 .env.local 里配置。 */
+  /** Supabase publishable / anon key, configured in .env.local. */
   readonly VITE_SUPABASE_ANON_KEY: string
 }
 

@@ -1,17 +1,17 @@
 /**
- * 录入/编辑表单的提交前校验（SPEC §4 P1 第 2 条防线）。
+ * Pre-submit validation for the create/edit form (SPEC §4 P1, second defense).
  *
- * 目的是从源头阻止非法日期入库 —— computeExpiry 对非法日期抛错，
- * 所以能写进库的日期必须先在这里过一遍。
+ * Prevent invalid dates at the source. computeExpiry throws on invalid dates, so
+ * every date written to the database must pass through this validation first.
  *
- * 零 React、零 Supabase 依赖。
+ * Zero React or Supabase dependencies.
  */
 
 import { isValidDateStr } from './expiry'
 import { CATEGORIES, LOCATIONS, TIERS } from './enums'
 import type { ItemDraft } from './types'
 
-/** 表单里所有字段都是字符串（受控 input 的原始值）。 */
+/** Every form field is the raw string value of a controlled input. */
 export interface ItemFormValues {
   name: string
   category: string
@@ -57,10 +57,10 @@ export function emptyFormValues(): ItemFormValues {
 }
 
 /**
- * 校验表单。返回空对象表示可以提交。
+ * Validate a form. An empty result means submission is allowed.
  *
- * 日期字段：允许留空；一旦填了就必须是 YYYY-MM-DD 且该日期真实存在
- * （2027-02-29 这种会被拒）。
+ * Date fields may be blank. Otherwise they must use YYYY-MM-DD and represent a real
+ * date; for example, 2027-02-29 is rejected.
  */
 export function validateItemForm(values: ItemFormValues): FieldErrors {
   const errors: FieldErrors = {}
@@ -103,8 +103,8 @@ export function hasErrors(errors: FieldErrors): boolean {
 }
 
 /**
- * 把表单值转成写库用的 draft。
- * 只应在 validateItemForm 通过后调用。
+ * Convert form values into a database draft.
+ * Call only after validateItemForm succeeds.
  */
 export function toItemDraft(values: ItemFormValues): ItemDraft {
   const text = (raw: string): string | null => {
@@ -131,8 +131,9 @@ export function toItemDraft(values: ItemFormValues): ItemDraft {
 }
 
 /**
- * tier 决定表单显示哪些日期字段（SPEC §6）。
- * L3 只有名称/类别/位置；L2 加购入日（+保质天数）；L1 加到期日或开封日（+PAO）。
+ * Tier determines which date fields the form displays (SPEC §6).
+ * L3 has name/category/location; L2 adds purchase date and shelf life; L1 adds
+ * expiry/opened dates and PAO.
  */
 export function visibleDateFields(tier: string): {
   purchase: boolean
@@ -168,7 +169,7 @@ export function visibleDateFields(tier: string): {
   }
 }
 
-/** 把库里的条目回填成表单值（编辑页用）。 */
+/** Convert a stored item back into edit-form values. */
 export function toFormValues(item: {
   name: string
   category: string

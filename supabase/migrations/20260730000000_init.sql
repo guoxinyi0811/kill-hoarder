@@ -1,16 +1,16 @@
--- P0 初始迁移：SPEC.md §2.1 DDL + §2.2 RLS
+-- P0 initial migration: SPEC.md §2.1 DDL + §2.2 RLS.
 --
--- 注意（CLAUDE.md 核心规则 1 / SPEC §2.3）：
---   status、days_left、effective_expiry 都不是列。全部由 src/lib/expiry.ts 运行时计算。
---   这里没有 status 列、没有缓存列、没有维护派生状态的触发器。
---   （末尾的 items_updated_at 触发器只维护审计字段 updated_at，不是派生状态。）
+-- Important (CLAUDE.md core rule 1 / SPEC §2.3):
+--   status, days_left, and effective_expiry are not columns. src/lib/expiry.ts computes them at runtime.
+--   There is no status column, derived-state cache, or trigger that maintains derived state.
+--   The items_updated_at trigger below maintains only the updated_at audit field.
 --
--- 执行方式（SPEC.md §2）：不用 supabase db reset，走 Dashboard SQL Editor 或 supabase db push。
--- 注意（CLAUDE.md 核心规则 4）：
---   删除一律软删除，走 consumed_at / discarded_at，消耗历史是 P4 的数据基础。
+-- Execution (SPEC.md §2): use the Dashboard SQL Editor or supabase db push, not supabase db reset.
+-- Important (CLAUDE.md core rule 4):
+--   Deletion is always soft deletion through consumed_at / discarded_at; history is the basis for P4.
 
 -- ---------------------------------------------------------------------------
--- 枚举类型（值、名称、顺序与 CLAUDE.md 一致，禁止新增/改名/改顺序）
+-- Enum types. Values, names, and order must match CLAUDE.md; do not add, rename, or reorder them.
 -- ---------------------------------------------------------------------------
 
 create type category_t as enum
@@ -50,7 +50,7 @@ create table items (
 );
 
 -- ---------------------------------------------------------------------------
--- catalog：常买物品模板，录入复用的核心（P2 使用）
+-- catalog: frequently used item templates for reusable entry (used in P2).
 -- ---------------------------------------------------------------------------
 
 create table catalog (
@@ -69,7 +69,7 @@ create table catalog (
 );
 
 -- ---------------------------------------------------------------------------
--- 索引
+-- Indexes.
 -- ---------------------------------------------------------------------------
 
 create index items_active_idx on items (user_id)
@@ -77,10 +77,10 @@ create index items_active_idx on items (user_id)
 create index catalog_rank_idx on catalog (user_id, use_count desc, last_used_at desc);
 
 -- ---------------------------------------------------------------------------
--- updated_at 自动维护
+-- Maintain updated_at automatically.
 --
--- 仅 items 有 updated_at 列，catalog 没有该列，故不加触发器。
--- 这是审计字段而非派生状态，不违反 CLAUDE.md 核心规则 1（status 绝不落库）。
+-- Only items has an updated_at column; catalog therefore has no corresponding trigger.
+-- This is an audit field, not derived state, so it does not violate core rule 1 (never store status).
 -- ---------------------------------------------------------------------------
 
 create extension if not exists moddatetime schema extensions;
@@ -89,7 +89,7 @@ create trigger items_updated_at before update on items
   for each row execute procedure extensions.moddatetime(updated_at);
 
 -- ---------------------------------------------------------------------------
--- RLS（单用户，但仍开，避免以后要分享时返工）
+-- RLS remains enabled for the single-user app to avoid rework if sharing is added later.
 -- ---------------------------------------------------------------------------
 
 alter table items   enable row level security;

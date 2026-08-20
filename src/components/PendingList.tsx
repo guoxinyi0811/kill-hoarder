@@ -1,10 +1,10 @@
 /**
- * 「⚠️ 待处理」主视图（SPEC §4 P1）。
+ * The "⚠️ Pending" main view (SPEC §4 P1).
  *
- * 纯展示组件：数据和回调全部由外部传入，不碰网络，方便单测。
+ * Presentational only: data and callbacks are injected, with no network access.
  *
- * 异常隔离：分组逻辑走 groupPending，它对每条独立 try/catch，
- * 非法条目落进 invalid 组渲染成可点击的占位，不会冒泡把整个列表炸掉。
+ * Error isolation: groupPending handles each item independently. Invalid items go
+ * into the invalid group as clickable placeholders instead of crashing the list.
  */
 
 import {

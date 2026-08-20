@@ -1,9 +1,9 @@
 /**
- * 底部 toast 回执。
+ * Bottom toast confirmation.
  *
- * 主要用途（SPEC §4 P1）：新增了一个 ok / untracked 的条目时，主视图筛选规则
- * 决定了它不会出现在列表里，必须靠这条回执告诉用户「确实存下来了」。
- * 文案带位置——录入 L3 的动机就是怕忘了买过，回显位置能强化记忆。
+ * Main use (SPEC §4 P1): a newly created ok / untracked item is filtered out of
+ * the main view, so this confirmation tells the user that it was saved. Including
+ * the location reinforces where an L3 item was stored.
  */
 
 import { useEffect } from 'react'

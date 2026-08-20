@@ -1,6 +1,6 @@
 /**
- * 登录（SPEC §2.2）：Supabase magic link，单账号。
- * 不做注册流程，不做密码找回 UI。
+ * Sign-in (SPEC §2.2): Supabase magic link for a single account.
+ * There is no registration flow or password-recovery UI.
  */
 
 import { useState, type FormEvent } from 'react'

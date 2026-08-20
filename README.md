@@ -34,8 +34,8 @@ no `status` column, no cache, no triggers maintaining derived state.
 
 ## Stack
 
-Vite · React 19 · TypeScript (strict) · Tailwind CSS · Supabase (Postgres + Auth + Edge Functions) ·
-TanStack Query · vite-plugin-pwa · Vitest · Cloudflare Pages
+Vite · React 19 · TypeScript (strict) · Tailwind CSS ·
+Supabase (Postgres + Auth) · TanStack Query · vite-plugin-pwa · Vitest
 
 ## Progress
 
@@ -133,8 +133,8 @@ validates before submit. Both defenses are covered by tests.
 
 ## 技术栈
 
-Vite · React 19 · TypeScript (strict) · Tailwind CSS · Supabase (Postgres + Auth + Edge Functions) ·
-TanStack Query · vite-plugin-pwa · Vitest · Cloudflare Pages
+Vite · React 19 · TypeScript (strict) · Tailwind CSS ·
+Supabase (Postgres + Auth) · TanStack Query · vite-plugin-pwa · Vitest
 
 ## 进度
 

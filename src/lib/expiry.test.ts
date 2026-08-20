@@ -4,11 +4,11 @@ import { CATEGORIES, WARN_DAYS, type Category } from './enums'
 import { computeExpiry, type DateStr, type ExpiryInput } from './expiry'
 
 /**
- * 测试用例编号对应 SPEC.md §3.2「必须覆盖的测试用例（P0）」的九条。
- * 每个 describe 块的标题标注了它覆盖的是哪一条。
+ * Case numbers correspond to the nine required P0 cases in SPEC.md §3.2.
+ * Each describe title identifies the requirement it covers.
  */
 
-/** 造 ExpiryInput：默认全空、category 为 other（warn = 30），只覆盖关心的字段。 */
+/** Build an ExpiryInput with empty defaults and category other (warn = 30). */
 function input(over: Partial<ExpiryInput> = {}): ExpiryInput {
   return {
     category: 'other',
@@ -22,9 +22,9 @@ function input(over: Partial<ExpiryInput> = {}): ExpiryInput {
 }
 
 /**
- * 测试侧的独立日期加法，基于 Date.UTC。
- * 被测实现用的是纯整数历法运算（不碰 Date），两套算法不同 → 互为交叉验证，
- * 而不是把被测逻辑在测试里抄一遍。
+ * Independent test-side date addition based on Date.UTC.
+ * Production uses integer civil-calendar arithmetic without Date, so the distinct
+ * algorithms cross-check each other instead of duplicating the implementation.
  */
 function plusDays(date: DateStr, n: number): DateStr {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number]
@@ -40,21 +40,21 @@ afterEach(() => {
 })
 
 // ---------------------------------------------------------------------------
-// §3.2 ① 三个来源各自单独存在
+// §3.2 1: each of the three sources in isolation.
 // ---------------------------------------------------------------------------
 
-describe('§3.2 ① 三个来源各自单独存在', () => {
-  it('只有 expiry_date → source 为 explicit', () => {
+describe('§3.2 1: each source in isolation', () => {
+  it('uses explicit when only expiry_date exists', () => {
     const r = computeExpiry(input({ expiry_date: '2026-08-10' }), TODAY)
     expect(r).toEqual({
       effectiveExpiry: '2026-08-10',
       daysLeft: 11,
-      status: 'urgent', // other 的 warn = 30，11 <= 30
+      status: 'urgent', // other warn = 30; 11 <= 30.
       source: 'explicit',
     })
   })
 
-  it('只有 opened_date + pao_months → source 为 pao', () => {
+  it('uses pao when only opened_date + pao_months exist', () => {
     const r = computeExpiry(
       input({ category: 'skincare', opened_date: '2026-07-01', pao_months: 3 }),
       TODAY,
@@ -62,12 +62,12 @@ describe('§3.2 ① 三个来源各自单独存在', () => {
     expect(r).toEqual({
       effectiveExpiry: '2026-10-01',
       daysLeft: 63,
-      status: 'soon', // skincare 的 warn = 60，60 < 63 <= 120
+      status: 'soon', // skincare warn = 60; 60 < 63 <= 120.
       source: 'pao',
     })
   })
 
-  it('只有 purchase_date + shelf_life_days → source 为 shelf_life', () => {
+  it('uses shelf_life when only purchase_date + shelf_life_days exist', () => {
     const r = computeExpiry(
       input({
         category: 'fresh',
@@ -79,18 +79,18 @@ describe('§3.2 ① 三个来源各自单独存在', () => {
     expect(r).toEqual({
       effectiveExpiry: '2026-07-31',
       daysLeft: 1,
-      status: 'urgent', // fresh 的 warn = 3
+      status: 'urgent', // fresh warn = 3.
       source: 'shelf_life',
     })
   })
 })
 
 // ---------------------------------------------------------------------------
-// §3.2 ② 多来源冲突时取最早
+// §3.2 2: choose the earliest when multiple sources conflict.
 // ---------------------------------------------------------------------------
 
-describe('§3.2 ② 多来源冲突时取最早', () => {
-  it('护肤品有 2027 的 expiry_date，但开封后 PAO 6 个月 → 取 PAO', () => {
+describe('§3.2 2: choose the earliest conflicting source', () => {
+  it('uses six-month PAO before a skincare expiry date in 2027', () => {
     const r = computeExpiry(
       input({
         category: 'skincare',
@@ -106,7 +106,7 @@ describe('§3.2 ② 多来源冲突时取最早', () => {
     expect(r.status).toBe('soon') // skincare warn = 60，60 < 94 <= 120
   })
 
-  it('三个来源同时存在 → 取最早的 shelf_life', () => {
+  it('uses shelf_life when it is earliest among all three sources', () => {
     const r = computeExpiry(
       input({
         expiry_date: '2026-12-01',
@@ -121,7 +121,7 @@ describe('§3.2 ② 多来源冲突时取最早', () => {
     expect(r.source).toBe('shelf_life')
   })
 
-  it('三个来源同时存在 → 取最早的 explicit', () => {
+  it('uses explicit when it is earliest among all three sources', () => {
     const r = computeExpiry(
       input({
         expiry_date: '2026-08-05',
@@ -136,7 +136,7 @@ describe('§3.2 ② 多来源冲突时取最早', () => {
     expect(r.source).toBe('explicit')
   })
 
-  it('explicit 晚于 shelf_life → 取 shelf_life', () => {
+  it('uses shelf_life when explicit is later', () => {
     const r = computeExpiry(
       input({
         expiry_date: '2027-01-01',
@@ -149,12 +149,12 @@ describe('§3.2 ② 多来源冲突时取最早', () => {
     expect(r.source).toBe('shelf_life')
   })
 
-  it('并列同一天时按 explicit > pao > shelf_life 定 source（explicit 与 pao 并列）', () => {
+  it('prefers explicit over pao when they resolve to the same date', () => {
     const r = computeExpiry(
       input({
         expiry_date: '2026-11-01',
         opened_date: '2026-05-01',
-        pao_months: 6, // → 2026-11-01，与 explicit 同日
+        pao_months: 6, // 2026-11-01, the same date as explicit.
       }),
       TODAY,
     )
@@ -162,13 +162,13 @@ describe('§3.2 ② 多来源冲突时取最早', () => {
     expect(r.source).toBe('explicit')
   })
 
-  it('并列同一天时按 explicit > pao > shelf_life 定 source（pao 与 shelf_life 并列）', () => {
+  it('prefers pao over shelf_life when they resolve to the same date', () => {
     const r = computeExpiry(
       input({
         opened_date: '2026-05-01',
         pao_months: 6, // → 2026-11-01
         purchase_date: '2026-10-31',
-        shelf_life_days: 1, // → 2026-11-01，同日
+        shelf_life_days: 1, // 2026-11-01, the same date.
       }),
       TODAY,
     )
@@ -178,11 +178,11 @@ describe('§3.2 ② 多来源冲突时取最早', () => {
 })
 
 // ---------------------------------------------------------------------------
-// §3.2 ③ 全空 → untracked
+// §3.2 3: all sources empty => untracked.
 // ---------------------------------------------------------------------------
 
-describe('§3.2 ③ 全空 → untracked', () => {
-  it('五个日期字段全 null → untracked，其余字段全 null', () => {
+describe('§3.2 3: all sources empty', () => {
+  it('returns untracked with null derived fields when all five inputs are null', () => {
     expect(computeExpiry(input(), TODAY)).toEqual({
       effectiveExpiry: null,
       daysLeft: null,
@@ -191,7 +191,7 @@ describe('§3.2 ③ 全空 → untracked', () => {
     })
   })
 
-  it('untracked 与 category 无关（L3 干货就是这种）', () => {
+  it('returns untracked regardless of category', () => {
     for (const category of CATEGORIES) {
       expect(computeExpiry(input({ category }), TODAY).status).toBe('untracked')
     }
@@ -199,11 +199,11 @@ describe('§3.2 ③ 全空 → untracked', () => {
 })
 
 // ---------------------------------------------------------------------------
-// §3.2 ④ 半空组合：来源不完整则该来源不参与
+// §3.2 4: incomplete source pairs do not participate.
 // ---------------------------------------------------------------------------
 
-describe('§3.2 ④ 半空组合 → 该来源不参与', () => {
-  it('只有 opened_date 没有 pao_months → untracked', () => {
+describe('§3.2 4: incomplete source pairs are ignored', () => {
+  it('returns untracked with opened_date but no pao_months', () => {
     expect(computeExpiry(input({ opened_date: '2026-07-01' }), TODAY)).toEqual({
       effectiveExpiry: null,
       daysLeft: null,
@@ -212,13 +212,13 @@ describe('§3.2 ④ 半空组合 → 该来源不参与', () => {
     })
   })
 
-  it('只有 pao_months 没有 opened_date → untracked', () => {
+  it('returns untracked with pao_months but no opened_date', () => {
     expect(computeExpiry(input({ pao_months: 6 }), TODAY).status).toBe(
       'untracked',
     )
   })
 
-  it('只有 purchase_date 没有 shelf_life_days → untracked', () => {
+  it('returns untracked with purchase_date but no shelf_life_days', () => {
     expect(computeExpiry(input({ purchase_date: '2026-07-01' }), TODAY)).toEqual(
       {
         effectiveExpiry: null,
@@ -229,16 +229,16 @@ describe('§3.2 ④ 半空组合 → 该来源不参与', () => {
     )
   })
 
-  it('只有 shelf_life_days 没有 purchase_date → untracked', () => {
+  it('returns untracked with shelf_life_days but no purchase_date', () => {
     expect(computeExpiry(input({ shelf_life_days: 30 }), TODAY).status).toBe(
       'untracked',
     )
   })
 
-  it('pao 半空但 shelf_life 完整 → 只用 shelf_life，不因半空而报错或参与', () => {
+  it('uses a complete shelf_life source while ignoring an incomplete PAO source', () => {
     const r = computeExpiry(
       input({
-        opened_date: '2026-01-01', // 无 pao_months，若误参与会得出更早的日期
+        opened_date: '2026-01-01', // No pao_months; incorrect participation would produce an earlier date.
         purchase_date: '2026-07-20',
         shelf_life_days: 30, // → 2026-08-19
       }),
@@ -248,7 +248,7 @@ describe('§3.2 ④ 半空组合 → 该来源不参与', () => {
     expect(r.source).toBe('shelf_life')
   })
 
-  it('shelf_life_days 为 0 是有效值，不能当成空（0 天保质期 = 购入日当天到期）', () => {
+  it('treats shelf_life_days zero as valid and expiring on purchase date', () => {
     const r = computeExpiry(
       input({ purchase_date: '2026-07-30', shelf_life_days: 0 }),
       TODAY,
@@ -258,7 +258,7 @@ describe('§3.2 ④ 半空组合 → 该来源不参与', () => {
     expect(r.daysLeft).toBe(0)
   })
 
-  it('pao_months 为 0 是有效值，不能当成空', () => {
+  it('treats pao_months zero as valid rather than empty', () => {
     const r = computeExpiry(
       input({ opened_date: '2026-07-30', pao_months: 0 }),
       TODAY,
@@ -270,17 +270,17 @@ describe('§3.2 ④ 半空组合 → 该来源不参与', () => {
 })
 
 // ---------------------------------------------------------------------------
-// §3.2 ⑤ 边界：daysLeft 与 status 的分档
+// §3.2 5: daysLeft and status boundaries.
 // ---------------------------------------------------------------------------
 
-describe('§3.2 ⑤ 状态边界（category = other，warn = 30）', () => {
+describe('§3.2 5: status boundaries (category other, warn 30)', () => {
   const warn = WARN_DAYS.other
 
-  it('WARN_DAYS.other 确实是 30（下面的固定日期依赖这个前提）', () => {
+  it('locks WARN_DAYS.other at 30 for the fixed-date cases below', () => {
     expect(warn).toBe(30)
   })
 
-  it('daysLeft === 0 → urgent（不是 expired）', () => {
+  it('classifies daysLeft zero as urgent rather than expired', () => {
     const r = computeExpiry(input({ expiry_date: '2026-07-30' }), TODAY)
     expect(r.daysLeft).toBe(0)
     expect(r.status).toBe('urgent')
@@ -292,7 +292,7 @@ describe('§3.2 ⑤ 状态边界（category = other，warn = 30）', () => {
     expect(r.status).toBe('expired')
   })
 
-  it('daysLeft 为较大负数 → expired', () => {
+  it('classifies a large negative daysLeft as expired', () => {
     const r = computeExpiry(input({ expiry_date: '2025-01-01' }), TODAY)
     expect(r.daysLeft).toBe(-575)
     expect(r.status).toBe('expired')
@@ -324,11 +324,11 @@ describe('§3.2 ⑤ 状态边界（category = other，warn = 30）', () => {
 })
 
 // ---------------------------------------------------------------------------
-// §3.2 ⑥ 跨月 / 跨年加月份，溢出取当月最后一天
+// §3.2 6: add months across boundaries and clamp overflow to month end.
 // ---------------------------------------------------------------------------
 
-describe('§3.2 ⑥ 加月份：跨月、跨年、溢出取当月最后一天', () => {
-  /** 走 pao 分支验证「opened_date + pao_months 个月」。 */
+describe('§3.2 6: month addition and end-of-month clamping', () => {
+  /** Exercise opened_date + pao_months through the PAO branch. */
   function paoExpiry(opened: DateStr, months: number): DateStr | null {
     return computeExpiry(
       input({ opened_date: opened, pao_months: months }),
@@ -336,11 +336,11 @@ describe('§3.2 ⑥ 加月份：跨月、跨年、溢出取当月最后一天', 
     ).effectiveExpiry
   }
 
-  it('2026-01-31 + 1 month → 2026-02-28（溢出取当月最后一天，SPEC 明确约定）', () => {
+  it('clamps 2026-01-31 + 1 month to 2026-02-28 as specified', () => {
     expect(paoExpiry('2026-01-31', 1)).toBe('2026-02-28')
   })
 
-  it('2026-01-31 + 3 months → 2026-04-30（4 月只有 30 天）', () => {
+  it('clamps 2026-01-31 + 3 months to April 30', () => {
     expect(paoExpiry('2026-01-31', 3)).toBe('2026-04-30')
   })
 
@@ -348,36 +348,36 @@ describe('§3.2 ⑥ 加月份：跨月、跨年、溢出取当月最后一天', 
     expect(paoExpiry('2026-03-31', 1)).toBe('2026-04-30')
   })
 
-  it('2026-01-15 + 1 month → 2026-02-15（不溢出则不改日）', () => {
+  it('preserves the day for 2026-01-15 + 1 month', () => {
     expect(paoExpiry('2026-01-15', 1)).toBe('2026-02-15')
   })
 
-  it('2026-12-15 + 2 months → 2027-02-15（跨年）', () => {
+  it('crosses the year for 2026-12-15 + 2 months', () => {
     expect(paoExpiry('2026-12-15', 2)).toBe('2027-02-15')
   })
 
-  it('2026-08-31 + 6 months → 2027-02-28（跨年 + 溢出）', () => {
+  it('crosses the year and clamps 2026-08-31 + 6 months', () => {
     expect(paoExpiry('2026-08-31', 6)).toBe('2027-02-28')
   })
 
-  it('2026-11-30 + 12 months → 2027-11-30（整年）', () => {
+  it('adds a full year for 2026-11-30 + 12 months', () => {
     expect(paoExpiry('2026-11-30', 12)).toBe('2027-11-30')
   })
 
-  it('2026-05-31 + 18 months → 2027-11-30（跨年且落在 30 天的月份）', () => {
+  it('crosses a year and clamps 2026-05-31 + 18 months to a 30-day month', () => {
     expect(paoExpiry('2026-05-31', 18)).toBe('2027-11-30')
   })
 
-  it('2026-12-31 + 1 month → 2027-01-31（跨年不溢出）', () => {
+  it('crosses the year without overflow for 2026-12-31 + 1 month', () => {
     expect(paoExpiry('2026-12-31', 1)).toBe('2027-01-31')
   })
 })
 
 // ---------------------------------------------------------------------------
-// §3.2 ⑦ 闰年
+// §3.2 7: leap years.
 // ---------------------------------------------------------------------------
 
-describe('§3.2 ⑦ 闰年', () => {
+describe('§3.2 7: leap years', () => {
   function paoExpiry(opened: DateStr, months: number): DateStr | null {
     return computeExpiry(
       input({ opened_date: opened, pao_months: months }),
@@ -385,15 +385,15 @@ describe('§3.2 ⑦ 闰年', () => {
     ).effectiveExpiry
   }
 
-  it('2027-08-29 + 6 months → 2028-02-29（闰年 2 月有 29 日，不该被砍到 28）', () => {
+  it('preserves February 29 for 2027-08-29 + 6 months in a leap year', () => {
     expect(paoExpiry('2027-08-29', 6)).toBe('2028-02-29')
   })
 
-  it('2028-01-31 + 1 month → 2028-02-29（闰年溢出取 29 而非 28）', () => {
+  it('clamps 2028-01-31 + 1 month to leap-day February 29', () => {
     expect(paoExpiry('2028-01-31', 1)).toBe('2028-02-29')
   })
 
-  it('2028-02-29 + 12 months → 2029-02-28（平年溢出取 28）', () => {
+  it('clamps leap day plus one year to February 28 in 2029', () => {
     expect(paoExpiry('2028-02-29', 12)).toBe('2029-02-28')
   })
 
@@ -401,15 +401,15 @@ describe('§3.2 ⑦ 闰年', () => {
     expect(paoExpiry('2028-02-29', 1)).toBe('2028-03-29')
   })
 
-  it('2100-01-31 + 1 month → 2100-02-28（能被 100 整除但不能被 400 整除，不是闰年）', () => {
+  it('treats 2100 as non-leap because it is divisible by 100 but not 400', () => {
     expect(paoExpiry('2100-01-31', 1)).toBe('2100-02-28')
   })
 
-  it('2000-01-31 + 1 month → 2000-02-29（能被 400 整除，是闰年）', () => {
+  it('treats 2000 as leap because it is divisible by 400', () => {
     expect(paoExpiry('2000-01-31', 1)).toBe('2000-02-29')
   })
 
-  it('加天数跨闰日：2028-02-28 + 1 day → 2028-02-29', () => {
+  it('adds one day across leap day from 2028-02-28', () => {
     const r = computeExpiry(
       input({ purchase_date: '2028-02-28', shelf_life_days: 1 }),
       TODAY,
@@ -417,7 +417,7 @@ describe('§3.2 ⑦ 闰年', () => {
     expect(r.effectiveExpiry).toBe('2028-02-29')
   })
 
-  it('加天数跨闰日：2028-02-28 + 2 days → 2028-03-01', () => {
+  it('adds two days across leap day from 2028-02-28', () => {
     const r = computeExpiry(
       input({ purchase_date: '2028-02-28', shelf_life_days: 2 }),
       TODAY,
@@ -425,7 +425,7 @@ describe('§3.2 ⑦ 闰年', () => {
     expect(r.effectiveExpiry).toBe('2028-03-01')
   })
 
-  it('平年不跳过：2027-02-28 + 1 day → 2027-03-01', () => {
+  it('moves from February 28 to March 1 in a non-leap year', () => {
     const r = computeExpiry(
       input({ purchase_date: '2027-02-28', shelf_life_days: 1 }),
       TODAY,
@@ -433,7 +433,7 @@ describe('§3.2 ⑦ 闰年', () => {
     expect(r.effectiveExpiry).toBe('2027-03-01')
   })
 
-  it('daysLeft 计算跨闰日正确：2028-02-28 → 2028-03-01 为 2 天', () => {
+  it('counts two days from 2028-02-28 to 2028-03-01 across leap day', () => {
     const r = computeExpiry(
       input({ expiry_date: '2028-03-01' }),
       '2028-02-28' as DateStr,
@@ -441,7 +441,7 @@ describe('§3.2 ⑦ 闰年', () => {
     expect(r.daysLeft).toBe(2)
   })
 
-  it('整个闰年 2028 共 366 天', () => {
+  it('counts 366 days across leap year 2028', () => {
     const r = computeExpiry(
       input({ expiry_date: '2029-01-01' }),
       '2028-01-01' as DateStr,
@@ -449,7 +449,7 @@ describe('§3.2 ⑦ 闰年', () => {
     expect(r.daysLeft).toBe(366)
   })
 
-  it('平年 2026 共 365 天', () => {
+  it('counts 365 days across non-leap year 2026', () => {
     const r = computeExpiry(
       input({ expiry_date: '2027-01-01' }),
       '2026-01-01' as DateStr,
@@ -459,11 +459,11 @@ describe('§3.2 ⑦ 闰年', () => {
 })
 
 // ---------------------------------------------------------------------------
-// §3.2 ⑧ 不同 category 走不同 warn 阈值
+// §3.2 8: category-specific warning thresholds.
 // ---------------------------------------------------------------------------
 
-describe('§3.2 ⑧ 不同 category 走不同 warn 阈值', () => {
-  it('WARN_DAYS 与 CLAUDE.md 逐字一致', () => {
+describe('§3.2 8: category-specific warning thresholds', () => {
+  it('matches WARN_DAYS exactly to CLAUDE.md', () => {
     expect(WARN_DAYS).toEqual({
       fresh: 3,
       frozen: 15,
@@ -475,7 +475,7 @@ describe('§3.2 ⑧ 不同 category 走不同 warn 阈值', () => {
     })
   })
 
-  it.each(CATEGORIES)('%s：三个分档边界都落在自己的 warn 上', (category) => {
+  it.each(CATEGORIES)('%s uses its own warn value for all three boundaries', (category) => {
     const warn = WARN_DAYS[category as Category]
 
     const at = (days: number) =>
@@ -490,7 +490,7 @@ describe('§3.2 ⑧ 不同 category 走不同 warn 阈值', () => {
     expect(at(warn * 2 + 1)).toBe('ok')
   })
 
-  it('同样剩 10 天：fresh 已经是 ok，frozen 却是 urgent', () => {
+  it('classifies 10 days as ok for fresh but urgent for frozen', () => {
     const expiry = plusDays(TODAY, 10)
     expect(
       computeExpiry(input({ category: 'fresh', expiry_date: expiry }), TODAY)
@@ -502,7 +502,7 @@ describe('§3.2 ⑧ 不同 category 走不同 warn 阈值', () => {
     ).toBe('urgent') // frozen warn = 15，10 <= 15
   })
 
-  it('同样剩 100 天：skincare 是 soon，其余全是 ok', () => {
+  it('classifies 100 days as soon for skincare and ok for all other categories', () => {
     const expiry = plusDays(TODAY, 100)
     expect(
       computeExpiry(input({ category: 'skincare', expiry_date: expiry }), TODAY)
@@ -516,7 +516,7 @@ describe('§3.2 ⑧ 不同 category 走不同 warn 阈值', () => {
     }
   })
 
-  it('已过期与 category 无关，所有 category 都是 expired', () => {
+  it('classifies expired dates as expired for every category', () => {
     for (const category of CATEGORIES) {
       expect(
         computeExpiry(
@@ -529,13 +529,13 @@ describe('§3.2 ⑧ 不同 category 走不同 warn 阈值', () => {
 })
 
 // ---------------------------------------------------------------------------
-// §3.2 ⑨ 时区：today 由调用方传入，函数内部不读系统时间
+// §3.2 9: callers provide today; the function never reads system time.
 // ---------------------------------------------------------------------------
 
-describe('§3.2 ⑨ today 由调用方传入，函数内部不读系统时间', () => {
+describe('§3.2 9: caller-provided today and no system clock reads', () => {
   const item = input({ expiry_date: '2026-08-10' })
 
-  it('系统时间被改到 2000 年，结果不变', () => {
+  it('is unchanged when system time is set to 2000', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2000-01-01T00:00:00Z'))
     expect(computeExpiry(item, TODAY)).toEqual({
@@ -546,7 +546,7 @@ describe('§3.2 ⑨ today 由调用方传入，函数内部不读系统时间', 
     })
   })
 
-  it('系统时间被改到 2099 年，结果不变', () => {
+  it('is unchanged when system time is set to 2099', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2099-12-31T23:59:59Z'))
     expect(computeExpiry(item, TODAY)).toEqual({
@@ -557,15 +557,15 @@ describe('§3.2 ⑨ today 由调用方传入，函数内部不读系统时间', 
     })
   })
 
-  it('同一 item 传不同 today → daysLeft 随之变化（today 是唯一的时间输入）', () => {
+  it('changes daysLeft when the same item receives a different today', () => {
     expect(computeExpiry(item, '2026-08-09').daysLeft).toBe(1)
     expect(computeExpiry(item, '2026-08-10').daysLeft).toBe(0)
     expect(computeExpiry(item, '2026-08-11').daysLeft).toBe(-1)
   })
 
-  it('日期是纯日历天数差，不受时刻/时区偏移影响（无 23 小时算 0 天的问题）', () => {
-    // 若内部用本地时区的 Date 做减法，America/Toronto 的 DST 切换日会算出 0.958 天
-    // 这类结果并向下取整成 0。这里跨 2027 年 3 月 14 日（多伦多 DST 起始）验证。
+  it('uses calendar-day differences without time-zone or 23-hour DST effects', () => {
+    // Local Date subtraction across Toronto's March 14, 2027 DST transition would
+    // produce 0.958 days and could truncate to zero; calendar arithmetic must return one.
     const r = computeExpiry(
       input({ expiry_date: '2027-03-15' }),
       '2027-03-13' as DateStr,
@@ -573,7 +573,7 @@ describe('§3.2 ⑨ today 由调用方传入，函数内部不读系统时间', 
     expect(r.daysLeft).toBe(2)
   })
 
-  /** 取出源码里所有 import / re-export 的模块名。 */
+  /** Extract every imported or re-exported module specifier from source. */
   function moduleSpecifiers(file: string): string[] {
     const src = readFileSync(new URL(`./${file}`, import.meta.url), 'utf8')
     return [...src.matchAll(/\bfrom\s*['"]([^'"]+)['"]/g)].map((m) => m[1])
@@ -584,7 +584,7 @@ describe('§3.2 ⑨ today 由调用方传入，函数内部不读系统时间', 
   }
 
   it.each(['expiry.ts', 'enums.ts'])(
-    '%s 只允许相对路径导入 → 零 React、零 Supabase、零第三方依赖',
+    '%s permits only relative imports and therefore no React, Supabase, or third-party dependency',
     (file) => {
       for (const specifier of moduleSpecifiers(file)) {
         expect(specifier).toMatch(/^\.{1,2}\//)
@@ -592,43 +592,43 @@ describe('§3.2 ⑨ today 由调用方传入，函数内部不读系统时间', 
     },
   )
 
-  it.each(['expiry.ts', 'enums.ts'])('%s 不读全局时间', (file) => {
+  it.each(['expiry.ts', 'enums.ts'])('%s does not read global time', (file) => {
     const src = sourceOf(file)
 
-    expect(src).not.toMatch(/new\s+Date\s*\(/) // 不构造 Date
-    expect(src).not.toMatch(/\bDate\s*\.\s*(now|UTC|parse)\s*\(/) // 不读时钟
+    expect(src).not.toMatch(/new\s+Date\s*\(/) // Never construct Date.
+    expect(src).not.toMatch(/\bDate\s*\.\s*(now|UTC|parse)\s*\(/) // Never read the clock.
     expect(src).not.toMatch(/performance\s*\.\s*now\s*\(/)
-    expect(src).not.toMatch(/\bIntl\s*\./) // 不碰本地化（会引入时区）
+    expect(src).not.toMatch(/\bIntl\s*\./) // Avoid localization APIs that introduce time zones.
     expect(src).not.toMatch(/toLocale[A-Za-z]*\s*\(/)
     expect(src).not.toMatch(/getTimezoneOffset/)
   })
 })
 
 // ---------------------------------------------------------------------------
-// 额外：输入格式非法时不静默返回错误答案
+// Additional guard: invalid input must not silently return a wrong answer.
 // ---------------------------------------------------------------------------
 
-describe('非法日期输入', () => {
+describe('invalid date input', () => {
   it.each([
-    ['2026-7-30', '月份未补零'],
-    ['26-07-30', '年份不是四位'],
-    ['2026/07/30', '分隔符不是短横'],
-    ['2026-13-01', '月份越界'],
-    ['2026-02-30', '该月没有这一天'],
-    ['2027-02-29', '平年没有 2 月 29 日'],
-    ['', '空串'],
-    ['not-a-date', '完全不是日期'],
-  ])('expiry_date = %j（%s）→ 抛错而不是返回错误答案', (bad) => {
+    ['2026-7-30', 'month is not zero-padded'],
+    ['26-07-30', 'year is not four digits'],
+    ['2026/07/30', 'separator is not a hyphen'],
+    ['2026-13-01', 'month is out of range'],
+    ['2026-02-30', 'day does not exist in the month'],
+    ['2027-02-29', 'February 29 does not exist in a non-leap year'],
+    ['', 'empty string'],
+    ['not-a-date', 'not a date at all'],
+  ])('throws for expiry_date = %j (%s) instead of returning a wrong answer', (bad) => {
     expect(() => computeExpiry(input({ expiry_date: bad }), TODAY)).toThrow()
   })
 
-  it('today 非法 → 抛错', () => {
+  it('throws when today is invalid', () => {
     expect(() =>
       computeExpiry(input({ expiry_date: '2026-08-10' }), '2026-07-3'),
     ).toThrow()
   })
 
-  it('2028-02-29 是合法日期，不该被误判', () => {
+  it('accepts valid leap date 2028-02-29', () => {
     expect(() =>
       computeExpiry(input({ expiry_date: '2028-02-29' }), TODAY),
     ).not.toThrow()

@@ -1,13 +1,13 @@
 /**
- * 新增 / 编辑表单（SPEC §4 P1、§6）。
+ * Create / edit form (SPEC §4 P1 and §6).
  *
- * 两件事：
- * 1. 按 tier 折叠字段：L3 只有名称/类别/位置；L2 加购入日；L1 再加到期日/开封日。
- *    tier 只影响显示，不参与任何计算（CLAUDE.md 核心规则 2）。
- * 2. 提交前校验日期——格式必须是 YYYY-MM-DD 且该日期真实存在。
- *    这是阻止非法值入库的那道防线（SPEC §4 P1）。
+ * Responsibilities:
+ * 1. Reveal fields by tier: L3 has name/category/location, L2 adds purchase date,
+ *    and L1 adds expiry/opened dates. Tier affects display only (core rule 2).
+ * 2. Validate dates before submission. They must use YYYY-MM-DD and actually exist.
+ *    This is the form-side defense against invalid database values (SPEC §4 P1).
  *
- * 纯展示组件，不碰网络。
+ * Presentational only; it does not access the network.
  */
 
 import { useState, type FormEvent } from 'react'
@@ -61,7 +61,7 @@ export function ItemForm({
     event.preventDefault()
     const found = validateItemForm(values)
     setErrors(found)
-    if (hasErrors(found)) return // 校验不过就不提交，非法日期到不了数据库
+    if (hasErrors(found)) return // Invalid forms never reach the database.
     onSubmit(toItemDraft(values))
   }
 
@@ -235,12 +235,12 @@ export function ItemForm({
 }
 
 /**
- * 日期输入框。
+ * Date input.
  *
- * 正常情况下用 type="date"，移动端能唤起原生日期选择器。
- * 但当前值非法时降级成 type="text" —— 因为浏览器（和 jsdom）会把非法值从
- * type="date" 里静默清洗成空串，那样从「⚠️ 日期数据异常」占位点进编辑页时，
- * 用户根本看不到坏的是什么。降级成文本框才能把坏值显示出来让人改。
+ * Normally type="date" invokes the native mobile date picker. If the current value
+ * is invalid, fall back to type="text": browsers (and jsdom) silently sanitize invalid
+ * date input values to an empty string, which would hide the bad value when the user
+ * opens an invalid-data placeholder for repair.
  */
 function DateInput({
   label,
@@ -281,7 +281,7 @@ interface FieldProps {
   children: React.ReactNode
 }
 
-/** 包裹单个输入控件。用 <label> 把标题和控件关联起来。 */
+/** Wrap one input and associate its caption through <label>. */
 function Field({ label, error, hint, children }: FieldProps) {
   return (
     <label className="block">
@@ -293,11 +293,11 @@ function Field({ label, error, hint, children }: FieldProps) {
 }
 
 /**
- * 包裹一组按钮（比如 tier 三选一）。
+ * Wrap a group of buttons, such as the three tier choices.
  *
- * 这里**不能**用 <label>：button 是可关联控件，被 <label> 包住时整段 label 文本
- * 会变成每个按钮的可访问名，三个按钮的名字就都一样了——读屏用户分不清，
- * 测试也选不中。用 role="group" 才对。
+ * Do not use <label> here. Buttons are labelable elements, so wrapping them in one
+ * label gives every button the same accessible name. role="group" preserves distinct
+ * button names for screen readers and tests.
  */
 function FieldGroup({ label, error, hint, children }: FieldProps) {
   return (
