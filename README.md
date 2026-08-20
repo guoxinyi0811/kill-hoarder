@@ -2,7 +2,6 @@
 
 **The pantry and vanity manager.** A single-user PWA that tracks what you own and when it goes bad.
 
-*Assisted by [Claude](https://claude.com/claude-code).*
 
 *[中文说明见下方](#kill-hoarder-中文)*
 
@@ -99,13 +98,14 @@ On an invalid date it **throws** rather than returning a fallback: getting an ex
 worse than crashing. Callers must handle it, so the list isolates errors per row and the form
 validates before submit. Both defenses are covered by tests.
 
+*Assisted by [Claude](https://claude.com/claude-code).*
+
 ---
 
 # Kill Hoarder（中文）
 
 **家庭保质期管理 PWA。** 单用户自用，记录家里有什么、什么时候过期。
 
-*Assisted by [Claude](https://claude.com/claude-code)。*
 
 解决两个**独立**的问题：
 
@@ -196,3 +196,4 @@ src/
 
 对非法日期它**抛错**而不是返回兜底值——保质期算错比崩掉更危险。调用方必须处理异常，
 所以列表渲染逐条隔离、表单提交前校验，两道防线都有测试覆盖。
+*Assisted by [Claude](https://claude.com/claude-code)。*
