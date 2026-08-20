@@ -1,6 +1,6 @@
 /**
- * items 表的行类型（对应 SPEC.md §2.1 DDL）。
- * 纯类型声明，零依赖。
+ * Row type for the items table (SPEC.md §2.1 DDL).
+ * Type declarations only, with zero dependencies.
  */
 
 import type { Category, Location, Quantity, Tier } from './enums'
@@ -31,7 +31,7 @@ export interface Item {
   updated_at: string
 }
 
-/** 新增/编辑时用户能填的字段。其余列走数据库默认值或由服务端维护。 */
+/** User-editable fields. Other columns use database defaults or server maintenance. */
 export interface ItemDraft {
   name: string
   category: Category
@@ -45,7 +45,7 @@ export interface ItemDraft {
   note: string | null
 }
 
-/** 位置的中文显示名。 */
+/** Chinese display names for locations. */
 export const LOCATION_LABEL: Record<Location, string> = {
   fridge: '冰箱',
   freezer: '冷冻',
@@ -55,7 +55,7 @@ export const LOCATION_LABEL: Record<Location, string> = {
   other: '其他',
 }
 
-/** 类别的中文显示名。 */
+/** Chinese display names for categories. */
 export const CATEGORY_LABEL: Record<Category, string> = {
   fresh: '生鲜',
   frozen: '冷冻',
@@ -66,7 +66,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   other: '其他',
 }
 
-/** tier 的中文显示名与说明（决定表单显示哪些字段）。 */
+/** Chinese tier labels and descriptions used to guide form field visibility. */
 export const TIER_LABEL: Record<Tier, string> = {
   L1: 'L1 精确',
   L2: 'L2 粗略',

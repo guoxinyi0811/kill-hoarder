@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* 移动端优先（SPEC §6）。桌面只需不难看：正文限宽居中，不做响应式布局分支。 */
+/* Mobile-first (SPEC §6). Desktop keeps a centered max-width layout without a separate branch. */
 
 html {
   -webkit-text-size-adjust: 100%;
@@ -17,7 +17,7 @@ body {
     'PingFang SC',
     'Microsoft YaHei',
     sans-serif;
-  /* 刘海屏安全区 */
+  /* Display-cutout safe area. */
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
@@ -29,7 +29,7 @@ body {
   background: #fff;
 }
 
-/* 移动端点击不要有蓝色高亮块 */
+/* Suppress the blue tap highlight on mobile. */
 button {
   -webkit-tap-highlight-color: transparent;
 }

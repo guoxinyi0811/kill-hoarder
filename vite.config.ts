@@ -22,8 +22,8 @@ export default defineConfig({
     }),
   ],
   test: {
-    // 默认 node：src/lib 是纯逻辑，不需要 DOM。
-    // 需要 DOM 的组件测试在文件顶部用 `// @vitest-environment jsdom` 单独声明。
+    // Use Node by default: src/lib contains pure logic and does not need a DOM.
+    // Component tests that need a DOM declare `// @vitest-environment jsdom` per file.
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
   },

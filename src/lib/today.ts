@@ -1,10 +1,10 @@
 /**
- * 「今天」的求值，固定时区 America/Toronto（CLAUDE.md 核心规则 5）。
+ * Resolve "today" in the fixed America/Toronto time zone (core rule 5).
  *
- * 这是整个项目里**唯一**允许读系统时间的模块。expiry.ts 被测试锁死了不许碰
- * Date / Intl，所以求今天这件事必须单独放在这里，由调用方把结果传进 computeExpiry。
+ * This is the only module allowed to read the system clock. Tests prohibit Date / Intl
+ * in expiry.ts, so callers resolve today here and pass it into computeExpiry.
  *
- * 零 React、零 Supabase 依赖。
+ * Zero React or Supabase dependencies.
  */
 
 import type { DateStr } from './expiry'
@@ -19,12 +19,12 @@ const FORMATTER = new Intl.DateTimeFormat('en-CA', {
 })
 
 /**
- * 把某个时刻换算成 America/Toronto 当地日历日的 'YYYY-MM-DD'。
+ * Convert an instant into its America/Toronto calendar date as 'YYYY-MM-DD'.
  *
- * 用 formatToParts 逐字段取值再拼接，不依赖 locale 的输出排版，
- * 因此不会因为运行环境的 ICU 数据差异而拼出别的格式。
+ * formatToParts supplies individual fields, avoiding locale-specific presentation
+ * and ICU formatting differences between runtimes.
  *
- * @param now 要换算的时刻，默认取当前系统时间。测试时传入固定 Date。
+ * @param now Instant to convert; defaults to the current system time. Tests pass a fixed Date.
  */
 export function torontoToday(now: Date = new Date()): DateStr {
   const parts = FORMATTER.formatToParts(now)

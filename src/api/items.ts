@@ -1,10 +1,11 @@
 /**
- * items 表的读写。
+ * Reads and writes for the items table.
  *
- * 删除一律软删除（CLAUDE.md 核心规则 4）：写 consumed_at / discarded_at，
- * 这里没有也不会有 .delete()。
+ * Deletion is always soft deletion (CLAUDE.md core rule 4): write consumed_at /
+ * discarded_at. This module never calls .delete().
  *
- * status / days_left / effective_expiry 都不查也不写——它们不是列（规则 1）。
+ * status / days_left / effective_expiry are neither read nor written because they
+ * are not database columns (core rule 1).
  */
 
 import { supabase } from './client'
@@ -12,7 +13,7 @@ import type { Item, ItemDraft } from '../lib/types'
 
 const TABLE = 'items'
 
-/** 未消耗且未丢弃的全部条目。 */
+/** Return every item that has been neither consumed nor discarded. */
 export async function fetchActiveItems(): Promise<Item[]> {
   const { data, error } = await supabase
     .from(TABLE)
@@ -25,7 +26,7 @@ export async function fetchActiveItems(): Promise<Item[]> {
   return (data ?? []) as Item[]
 }
 
-/** 新增。user_id 走 DDL 里的 default auth.uid()，quantity_level 走默认 'full'。 */
+/** Insert an item. The DDL supplies user_id via auth.uid() and quantity_level as 'full'. */
 export async function insertItem(draft: ItemDraft): Promise<Item> {
   const { data, error } = await supabase
     .from(TABLE)
@@ -37,7 +38,7 @@ export async function insertItem(draft: ItemDraft): Promise<Item> {
   return data as Item
 }
 
-/** 编辑。updated_at 由数据库的 moddatetime 触发器维护，这里不传。 */
+/** Update an item. The database moddatetime trigger maintains updated_at. */
 export async function updateItem(
   id: string,
   draft: ItemDraft,
@@ -53,7 +54,7 @@ export async function updateItem(
   return data as Item
 }
 
-/** 标记已用完（软删除）。 */
+/** Mark an item as consumed (soft deletion). */
 export async function markConsumed(id: string): Promise<Item> {
   const { data, error } = await supabase
     .from(TABLE)
@@ -66,7 +67,7 @@ export async function markConsumed(id: string): Promise<Item> {
   return data as Item
 }
 
-/** 标记已丢弃（软删除）。 */
+/** Mark an item as discarded (soft deletion). */
 export async function markDiscarded(id: string): Promise<Item> {
   const { data, error } = await supabase
     .from(TABLE)

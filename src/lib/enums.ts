@@ -1,10 +1,10 @@
 /**
- * 枚举值与阈值的唯一真源。
+ * Single source of truth for enum values and thresholds.
  *
- * 值、名称、顺序均与 CLAUDE.md「枚举值」「WARN_DAYS」两节逐字对应，
- * 且与 SPEC.md §2.1 DDL 中的 pg enum 一致。禁止新增、改名、改顺序、改数值。
+ * Values, names, and order match the Enum Values and WARN_DAYS sections of CLAUDE.md
+ * and the PostgreSQL enums in SPEC.md §2.1. Do not add, rename, reorder, or change values.
  *
- * 零 React / 零 Supabase 依赖。
+ * Zero React or Supabase dependencies.
  */
 
 export type Category =
@@ -30,7 +30,7 @@ export type Quantity = 'full' | 'half' | 'low'
 
 export type Status = 'expired' | 'urgent' | 'soon' | 'ok' | 'untracked'
 
-/** 运行时可迭代的取值列表，顺序即 DDL 中 enum 的声明顺序。 */
+/** Runtime iterable values in the same order as their DDL enum declarations. */
 export const CATEGORIES = [
   'fresh',
   'frozen',
@@ -67,8 +67,8 @@ export const STATUSES = [
 ] as const satisfies readonly Status[]
 
 /**
- * 每个 category 的预警天数。
- * daysLeft <= WARN_DAYS[category] → urgent；<= 两倍 → soon。
+ * Warning days for each category.
+ * daysLeft <= WARN_DAYS[category] is urgent; <= twice that value is soon.
  */
 export const WARN_DAYS: Record<Category, number> = {
   fresh: 3,

@@ -11,34 +11,34 @@ import {
 } from './validation'
 
 function values(over: Partial<ItemFormValues> = {}): ItemFormValues {
-  return { ...emptyFormValues(), name: '牛奶', ...over }
+  return { ...emptyFormValues(), name: 'Milk', ...over }
 }
 
 describe('isValidDateStr', () => {
   it.each(['2026-07-30', '2028-02-29', '2000-02-29', '1999-12-31'])(
-    '%s 合法',
+    '%s is valid',
     (v) => {
       expect(isValidDateStr(v)).toBe(true)
     },
   )
 
   it.each([
-    '2027-02-29', // 平年没有闰日
+    '2027-02-29', // A non-leap year has no February 29.
     '2026-02-30',
     '2026-13-01',
     '2026-00-10',
     '2026-07-32',
-    '2026-7-30', // 未补零
+    '2026-7-30', // Month is not zero-padded.
     '26-07-30',
     '2026/07/30',
     '2026-07-30T00:00:00Z',
     '',
     'not-a-date',
-  ])('%j 非法', (v) => {
+  ])('%j is invalid', (v) => {
     expect(isValidDateStr(v)).toBe(false)
   })
 
-  it('与 computeExpiry 接受的集合一致：isValidDateStr 放行的，computeExpiry 就不抛', () => {
+  it('accepts every date that computeExpiry accepts', () => {
     for (const v of ['2026-07-30', '2028-02-29', '2100-03-01']) {
       expect(isValidDateStr(v)).toBe(true)
       expect(() =>
@@ -57,7 +57,7 @@ describe('isValidDateStr', () => {
     }
   })
 
-  it('与 computeExpiry 接受的集合一致：isValidDateStr 拒绝的，computeExpiry 一定抛', () => {
+  it('rejects every date that makes computeExpiry throw', () => {
     for (const v of ['2027-02-29', '2026-13-01', '2026-7-30', 'bad']) {
       expect(isValidDateStr(v)).toBe(false)
       expect(() =>
@@ -77,27 +77,27 @@ describe('isValidDateStr', () => {
   })
 })
 
-describe('validateItemForm — 名称', () => {
-  it('空名称报错', () => {
+describe('validateItemForm — name', () => {
+  it('rejects an empty name', () => {
     expect(validateItemForm(values({ name: '' })).name).toBeTruthy()
   })
 
-  it('只有空白的名称报错', () => {
+  it('rejects a whitespace-only name', () => {
     expect(validateItemForm(values({ name: '   ' })).name).toBeTruthy()
   })
 
-  it('正常名称通过', () => {
+  it('accepts a normal name', () => {
     expect(validateItemForm(values()).name).toBeUndefined()
   })
 })
 
-describe('validateItemForm — 日期字段（SPEC §4 P1 第 2 条防线）', () => {
-  it('三个日期字段留空都合法（tier 决定填不填）', () => {
+describe('validateItemForm — date fields (SPEC §4 P1 second defense)', () => {
+  it('allows all three date fields to be blank because tier controls entry', () => {
     expect(hasErrors(validateItemForm(values()))).toBe(false)
   })
 
   it.each(['purchase_date', 'expiry_date', 'opened_date'] as const)(
-    '%s = 2027-02-29（平年闰日）→ 拒绝提交',
+    '%s rejects 2027-02-29 in a non-leap year',
     (field) => {
       const errors = validateItemForm(values({ [field]: '2027-02-29' }))
       expect(errors[field]).toBeTruthy()
@@ -106,7 +106,7 @@ describe('validateItemForm — 日期字段（SPEC §4 P1 第 2 条防线）', (
   )
 
   it.each(['purchase_date', 'expiry_date', 'opened_date'] as const)(
-    '%s 格式非法 → 拒绝提交',
+    '%s rejects invalid formats',
     (field) => {
       expect(hasErrors(validateItemForm(values({ [field]: '2026/07/30' })))).toBe(
         true,
@@ -114,12 +114,12 @@ describe('validateItemForm — 日期字段（SPEC §4 P1 第 2 条防线）', (
       expect(hasErrors(validateItemForm(values({ [field]: '2026-7-30' })))).toBe(
         true,
       )
-      expect(hasErrors(validateItemForm(values({ [field]: '乱写' })))).toBe(true)
+      expect(hasErrors(validateItemForm(values({ [field]: 'garbage' })))).toBe(true)
     },
   )
 
   it.each(['purchase_date', 'expiry_date', 'opened_date'] as const)(
-    '%s = 2028-02-29（闰年真实存在）→ 放行',
+    '%s accepts the real leap date 2028-02-29',
     (field) => {
       expect(hasErrors(validateItemForm(values({ [field]: '2028-02-29' })))).toBe(
         false,
@@ -127,7 +127,7 @@ describe('validateItemForm — 日期字段（SPEC §4 P1 第 2 条防线）', (
     },
   )
 
-  it('多个日期同时非法时逐个报错', () => {
+  it('reports each invalid field when multiple dates are invalid', () => {
     const errors = validateItemForm(
       values({ purchase_date: '2026-13-01', expiry_date: '2027-02-29' }),
     )
@@ -136,35 +136,35 @@ describe('validateItemForm — 日期字段（SPEC §4 P1 第 2 条防线）', (
   })
 })
 
-describe('validateItemForm — 数字字段', () => {
-  it('留空合法', () => {
+describe('validateItemForm — numeric fields', () => {
+  it('allows blank values', () => {
     expect(hasErrors(validateItemForm(values()))).toBe(false)
   })
 
-  it('0 合法（0 天保质期是有效输入）', () => {
+  it('accepts zero because a zero-day shelf life is valid', () => {
     expect(
       hasErrors(validateItemForm(values({ shelf_life_days: '0' }))),
     ).toBe(false)
   })
 
-  it('负数拒绝', () => {
+  it('rejects negative values', () => {
     expect(validateItemForm(values({ shelf_life_days: '-1' })).shelf_life_days)
       .toBeTruthy()
   })
 
-  it('小数拒绝', () => {
+  it('rejects decimals', () => {
     expect(validateItemForm(values({ pao_months: '1.5' })).pao_months)
       .toBeTruthy()
   })
 
-  it('非数字拒绝', () => {
+  it('rejects non-numeric values', () => {
     expect(validateItemForm(values({ pao_months: 'abc' })).pao_months)
       .toBeTruthy()
   })
 })
 
-describe('validateItemForm — 枚举字段', () => {
-  it('合法枚举通过', () => {
+describe('validateItemForm — enum fields', () => {
+  it('accepts valid enum values', () => {
     expect(
       hasErrors(
         validateItemForm(
@@ -174,23 +174,23 @@ describe('validateItemForm — 枚举字段', () => {
     ).toBe(false)
   })
 
-  it('伪造的 category 被拒', () => {
+  it('rejects an unknown category', () => {
     expect(validateItemForm(values({ category: 'drinks' })).category)
       .toBeTruthy()
   })
 
-  it('伪造的 location 被拒', () => {
+  it('rejects an unknown location', () => {
     expect(validateItemForm(values({ location: 'garage' })).location)
       .toBeTruthy()
   })
 
-  it('伪造的 tier 被拒', () => {
+  it('rejects an unknown tier', () => {
     expect(validateItemForm(values({ tier: 'L4' })).tier).toBeTruthy()
   })
 })
 
 describe('toItemDraft', () => {
-  it('空字符串转成 null，不是空串', () => {
+  it('converts empty strings to null', () => {
     const draft = toItemDraft(values())
     expect(draft.purchase_date).toBeNull()
     expect(draft.expiry_date).toBeNull()
@@ -200,7 +200,7 @@ describe('toItemDraft', () => {
     expect(draft.note).toBeNull()
   })
 
-  it('数字字段转成 number', () => {
+  it('converts numeric fields to numbers', () => {
     const draft = toItemDraft(
       values({ shelf_life_days: '30', pao_months: '6' }),
     )
@@ -208,17 +208,17 @@ describe('toItemDraft', () => {
     expect(draft.pao_months).toBe(6)
   })
 
-  it('0 转成数字 0 而不是 null', () => {
+  it('converts zero to numeric zero rather than null', () => {
     expect(toItemDraft(values({ shelf_life_days: '0' })).shelf_life_days).toBe(0)
   })
 
-  it('名称去掉首尾空白', () => {
-    expect(toItemDraft(values({ name: '  牛奶  ' })).name).toBe('牛奶')
+  it('trims surrounding whitespace from the name', () => {
+    expect(toItemDraft(values({ name: '  Milk  ' })).name).toBe('Milk')
   })
 })
 
-describe('visibleDateFields（tier 只影响表单显示，SPEC §6 / CLAUDE.md 规则 2）', () => {
-  it('L3 只有名称/类别/位置，不显示任何日期字段', () => {
+describe('visibleDateFields (tier only controls form display, SPEC §6 / core rule 2)', () => {
+  it('shows no date fields for L3', () => {
     expect(visibleDateFields('L3')).toEqual({
       purchase: false,
       shelfLife: false,
@@ -228,7 +228,7 @@ describe('visibleDateFields（tier 只影响表单显示，SPEC §6 / CLAUDE.md 
     })
   })
 
-  it('L2 加购入日和保质天数', () => {
+  it('adds purchase date and shelf life for L2', () => {
     const fields = visibleDateFields('L2')
     expect(fields.purchase).toBe(true)
     expect(fields.shelfLife).toBe(true)
@@ -236,7 +236,7 @@ describe('visibleDateFields（tier 只影响表单显示，SPEC §6 / CLAUDE.md 
     expect(fields.opened).toBe(false)
   })
 
-  it('L1 显示全部日期字段', () => {
+  it('shows all date fields for L1', () => {
     expect(visibleDateFields('L1')).toEqual({
       purchase: true,
       shelfLife: true,
@@ -247,11 +247,11 @@ describe('visibleDateFields（tier 只影响表单显示，SPEC §6 / CLAUDE.md 
   })
 })
 
-describe('toFormValues（编辑页回填）', () => {
-  it('null 回填成空字符串，数字转字符串', () => {
+describe('toFormValues (populate the edit form)', () => {
+  it('converts null to empty strings and numbers to strings', () => {
     expect(
       toFormValues({
-        name: '面霜',
+        name: 'Face cream',
         category: 'skincare',
         location: 'vanity',
         tier: 'L1',
@@ -263,7 +263,7 @@ describe('toFormValues（编辑页回填）', () => {
         note: null,
       }),
     ).toEqual({
-      name: '面霜',
+      name: 'Face cream',
       category: 'skincare',
       location: 'vanity',
       tier: 'L1',
@@ -276,9 +276,9 @@ describe('toFormValues（编辑页回填）', () => {
     })
   })
 
-  it('回填后再校验不应报错（往返一致）', () => {
+  it('round-trips stored values through validation without errors', () => {
     const restored = toFormValues({
-      name: '牛奶',
+      name: 'Milk',
       category: 'fresh',
       location: 'fridge',
       tier: 'L2',
@@ -287,7 +287,7 @@ describe('toFormValues（编辑页回填）', () => {
       shelf_life_days: 10,
       opened_date: null,
       pao_months: null,
-      note: '开了要三天喝完',
+      note: 'Finish within three days after opening',
     })
     expect(hasErrors(validateItemForm(restored))).toBe(false)
   })
